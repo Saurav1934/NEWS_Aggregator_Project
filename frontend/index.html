@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExamMemory AI | Current Affairs Revision Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- API-offline banner (shown when backend unreachable) -->
+  <div class="offline-banner" id="offline-banner" role="alert" aria-live="assertive" hidden>
+    <i class="bx bx-wifi-off"></i>
+    <span>Backend not reachable — showing demo data. <strong>Run the FastAPI server</strong> to connect live feeds.</span>
+    <button class="offline-close" id="offline-close" aria-label="Dismiss">×</button>
+  </div>
+
+  <!-- Quiz mode indicator -->
+  <div class="quiz-mode-banner" id="quiz-mode-banner" hidden>
+    <i class="bx bx-refresh"></i>
+    <span id="quiz-mode-label">Revision quiz active</span>
+    <button class="link-btn" id="switch-daily-quiz">Switch to daily quiz</button>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="#dashboard" aria-label="ExamMemory AI home">
+      <span class="brand-mark">EA</span>
+      <span>ExamMemory<span class="brand-ai"> AI</span></span>
+    </a>
+
+    <nav class="nav" id="nav" role="navigation" aria-label="Main navigation">
+      <a href="#dashboard" class="active">Dashboard</a>
+      <a href="#news">News</a>
+      <a href="#revision">Revision</a>
+      <a href="#quiz">Quiz</a>
+      <a href="#search">Search</a>
+      <a href="#weekly-test">Weekly</a>
+      <a href="#mock-test">Mock Test</a>
+      <a href="#leaderboard">Ranks</a>
+      <a href="#architecture">Stack</a>
+    </nav>
+
+    <div class="topbar-end">
+      <div class="auth-area" id="auth-area">
+        <button type="button" class="auth-chip" id="auth-open" aria-haspopup="dialog">
+          <i class="bx bx-user" aria-hidden="true"></i>
+          <span id="auth-label">Sign in</span>
+        </button>
+        <button type="button" class="auth-logout icon-button" id="auth-logout" hidden aria-label="Sign out">
+          <i class="bx bx-log-out"></i>
+        </button>
+      </div>
+      <button class="theme-toggle icon-button" id="theme-toggle" aria-label="Toggle dark mode">
+        <i class="bx bx-moon" id="theme-icon"></i>
+      </button>
+      <button class="icon-button menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false">
+        <i class="bx bx-menu"></i>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── HERO / DASHBOARD ─────────────────────────────────────── -->
+    <section class="hero" id="dashboard">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">AI-powered current affairs memory engine</p>
+        <h1>Read today.<br>Revise tomorrow.<br>Remember in the exam.</h1>
+        <p class="hero-text">A focused platform for UPSC, SSC, Banking, Railway, State PSC, Defence, and other Indian government exam aspirants. Filters news, converts it into exam notes, and schedules spaced revision until facts stick.</p>
+
+        <div class="hero-actions">
+          <a href="#news" class="primary-button"><i class="bx bx-news"></i> Start reading</a>
+          <a href="#revision" class="secondary-button"><i class="bx bx-refresh"></i> Revise due topics</a>
+        </div>
+      </div>
+
+      <aside class="dashboard-panel reveal" aria-label="Daily study dashboard">
+        <div class="panel-header">
+          <div>
+            <p class="label">Today</p>
+            <h2 id="today-date">—</h2>
+          </div>
+          <span class="status-pill" id="status-pill">Demo mode</span>
+        </div>
+
+        <div class="metric-grid">
+          <article>
+            <span>Important News</span>
+            <strong id="news-count">—</strong>
+          </article>
+          <article>
+            <span>Revision Due</span>
+            <strong id="revision-count">—</strong>
+          </article>
+          <article>
+            <span>Retention</span>
+            <strong id="retention-score">—</strong>
+          </article>
+          <article>
+            <span>Streak</span>
+            <strong id="streak-count">—</strong>
+          </article>
+        </div>
+
+        <div class="weak-area" id="weak-area">
+          <div><span class="dot economy"></span><span>Economy needs review</span></div>
+          <div><span class="dot environment"></span><span>Environment accuracy dipped</span></div>
+        </div>
+
+        <!-- Streak calendar row -->
+        <div class="streak-row" id="streak-row" aria-label="7-day streak calendar"></div>
+      </aside>
+    </section>
+
+    <!-- ── NEWS FEED ─────────────────────────────────────────────── -->
+    <section class="section feed-section" id="news">
+      <div class="section-heading reveal">
+        <p class="eyebrow">AI filtering</p>
+        <h2>Only exam-relevant current affairs survive the filter.</h2>
+        <p>Trusted feeds are scored by exam importance, category, tags, and target exams before anything reaches a student.</p>
+      </div>
+
+      <div class="control-row reveal" aria-label="Exam personalization" role="group">
+        <button class="chip active" data-exam="UPSC">UPSC</button>
+        <button class="chip" data-exam="SSC">SSC</button>
+        <button class="chip" data-exam="Banking">Banking</button>
+        <button class="chip" data-exam="Railway">Railway</button>
+        <button class="chip" data-exam="State PSC">State PSC</button>
+        <button class="chip" data-exam="Defence">Defence</button>
+      </div>
+
+      <div class="news-layout">
+        <div class="source-rail reveal">
+          <h3>Hourly Sources</h3>
+          <ul class="source-list" id="source-list">
+            <li><i class="bx bx-news" aria-hidden="true"></i> The Hindu, Indian Express</li>
+            <li><i class="bx bx-radio" aria-hidden="true"></i> PIB, PRS India</li>
+            <li><i class="bx bx-line-chart" aria-hidden="true"></i> Economic Times, Business Standard</li>
+            <li><i class="bx bx-buildings" aria-hidden="true"></i> HT, TOI, Telegraph</li>
+            <li><i class="bx bx-bank" aria-hidden="true"></i> RBI, ISRO, Down To Earth</li>
+            <li><i class="bx bx-book" aria-hidden="true"></i> Dainik Bhaskar, Amar Ujala (Hindi)</li>
+          </ul>
+
+          <!-- Category accuracy sidebar -->
+          <div class="category-accuracy" id="category-accuracy">
+            <h4>Category accuracy</h4>
+            <div class="acc-bars" id="acc-bars"></div>
+          </div>
+        </div>
+
+        <div class="article-list reveal" id="article-list" aria-live="polite" aria-label="Current affairs articles"></div>
+      </div>
+    </section>
+
+    <!-- ── EXAM NOTES ─────────────────────────────────────────────── -->
+    <section class="section notes-section">
+      <div class="section-heading reveal">
+        <p class="eyebrow">AI exam summary</p>
+        <h2>One article becomes multiple exam-ready formats.</h2>
+      </div>
+
+      <div class="notes-grid reveal">
+        <article class="note-preview quick">
+          <div class="note-topline">
+            <span>Quick Mode</span>
+            <i class="bx bx-timer" aria-hidden="true"></i>
+          </div>
+          <h3>SSC / Banking / Railway</h3>
+          <ul>
+            <li>5 bullet facts</li>
+            <li>Scheme, ministry, index, location</li>
+            <li>Fast GK recall</li>
+            <li>One direct MCQ</li>
+          </ul>
+        </article>
+
+        <article class="note-preview deep">
+          <div class="note-topline">
+            <span>Deep Mode</span>
+            <i class="bx bx-book-open" aria-hidden="true"></i>
+          </div>
+          <h3>UPSC / State PSC</h3>
+          <ul>
+            <li>Why in news and background</li>
+            <li>GS paper mapping</li>
+            <li>Constitutional or policy relevance</li>
+            <li>Mains perspective and keywords</li>
+          </ul>
+        </article>
+
+        <article class="summary-card">
+          <p class="label">Generated note sample</p>
+          <h3>RBI keeps repo rate unchanged</h3>
+          <p><strong>Why in News:</strong> The Monetary Policy Committee announced the latest policy stance.</p>
+          <p><strong>Exam Relevance:</strong> Economy, Banking, RBI, inflation targeting.</p>
+          <div class="mcq-box">
+            <strong>MCQ</strong>
+            <p>Which body decides India's policy repo rate?</p>
+            <span>Answer: Monetary Policy Committee</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── REVISION ───────────────────────────────────────────────── -->
+    <section class="section revision-section" id="revision">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Spaced revision</p>
+        <h2>The app remembers what the student read and brings it back on time.</h2>
+      </div>
+
+      <div class="revision-grid">
+        <article class="revision-card reveal">
+          <div class="panel-header">
+            <div>
+              <p class="label">Due now</p>
+              <h3 id="revision-message">Mark articles read to unlock revision.</h3>
+            </div>
+            <i class="bx bx-bell" aria-hidden="true"></i>
+          </div>
+          <p>Finish a 2–5 minute recall quiz to protect yesterday's learning.</p>
+          <button class="primary-button" id="start-revision">
+            <i class="bx bx-play" aria-hidden="true"></i> Start revision
+          </button>
+        </article>
+
+        <div class="schedule reveal" aria-label="Spaced repetition schedule">
+          <div class="schedule-step active">
+            <span>Day 1</span><strong>Learn</strong>
+            <p class="schedule-desc">Read filtered articles and mark them</p>
+          </div>
+          <div class="schedule-step due">
+            <span>Day 2</span><strong>First quiz</strong>
+            <p class="schedule-desc">3–5 MCQs per article, auto-generated</p>
+          </div>
+          <div class="schedule-step">
+            <span>Day 7</span><strong>Recall</strong>
+            <p class="schedule-desc">Spot-check retention after a week</p>
+          </div>
+          <div class="schedule-step">
+            <span>Day 21</span><strong>Retention</strong>
+            <p class="schedule-desc">Long-term memory consolidation</p>
+          </div>
+          <div class="schedule-step">
+            <span>Day 45</span><strong>Final revision</strong>
+            <p class="schedule-desc">Exam-ready recall confirmation</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── QUIZ ──────────────────────────────────────────────────── -->
+    <section class="section quiz-section" id="quiz">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Daily quiz</p>
+        <h2>Exam-style questions generated from filtered current affairs.</h2>
+      </div>
+
+      <div class="quiz-shell reveal">
+        <div class="quiz-card">
+          <div class="quiz-meta">
+            <span id="quiz-category">Government Schemes</span>
+            <span id="quiz-progress">1 / 3</span>
+          </div>
+
+          <!-- Loading state -->
+          <div class="quiz-loading" id="quiz-loading" aria-live="polite">
+            <div class="spinner" aria-label="Loading quiz questions"></div>
+            <p>Building your quiz from today's news…</p>
+          </div>
+
+          <h3 id="quiz-question" hidden></h3>
+          <div class="options" id="quiz-options" role="group" aria-label="Answer options"></div>
+          <div class="quiz-result" id="quiz-result" aria-live="polite" aria-atomic="true"></div>
+          <button class="secondary-button" id="next-question" hidden>
+            <i class="bx bx-right-arrow-alt" aria-hidden="true"></i> Next question
+          </button>
+        </div>
+
+        <aside class="score-panel">
+          <p class="label">Live performance</p>
+          <strong id="quiz-score">0%</strong>
+          <span id="quiz-feedback">Choose an answer to begin.</span>
+
+          <!-- Progress ring -->
+          <div class="progress-donut" aria-hidden="true">
+            <svg viewBox="0 0 64 64" width="64" height="64">
+              <circle class="donut-track" cx="32" cy="32" r="28"/>
+              <circle class="donut-fill" id="donut-fill" cx="32" cy="32" r="28"
+                stroke-dasharray="0 175.93" stroke-dashoffset="44"/>
+            </svg>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ── SEARCH ────────────────────────────────────────────────── -->
+    <section class="section search-section" id="search">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Search and revision notes</p>
+        <h2>Find every topic by article, category, keyword, timeline, or MCQ.</h2>
+      </div>
+
+      <div class="search-panel reveal">
+        <label for="topic-search">Search topic</label>
+        <div class="search-box">
+          <i class="bx bx-search" aria-hidden="true"></i>
+          <input id="topic-search" type="search" placeholder="Try India Maldives, RBI, climate, ISRO" autocomplete="off">
+          <button class="search-clear" id="search-clear" aria-label="Clear search" hidden>
+            <i class="bx bx-x"></i>
+          </button>
+        </div>
+        <div class="search-results" id="search-results" aria-live="polite" aria-label="Search results"></div>
+      </div>
+    </section>
+
+    <!-- ── GAMIFICATION ──────────────────────────────────────────── -->
+    <section class="section gamification-section">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Consistency loop</p>
+        <h2>Small rewards keep revision moving.</h2>
+      </div>
+
+      <div class="badge-grid reveal" id="badge-grid">
+        <article class="badge-locked">
+          <i class="bx bx-flame" aria-hidden="true"></i>
+          <strong>7 Day Streak</strong>
+          <span>Daily reading plus revision</span>
+          <div class="badge-progress-bar"><div class="badge-progress-fill" style="width:57%"></div></div>
+          <small>4 / 7 days</small>
+        </article>
+        <article>
+          <i class="bx bx-medal" aria-hidden="true"></i>
+          <strong>90% Economy Accuracy</strong>
+          <span>Subject strength badge</span>
+          <div class="badge-progress-bar"><div class="badge-progress-fill" style="width:90%"></div></div>
+          <small>Earned</small>
+        </article>
+        <article class="badge-locked">
+          <i class="bx bx-target-lock" aria-hidden="true"></i>
+          <strong>Monthly Test Ready</strong>
+          <span>Completed all recall cycles</span>
+          <div class="badge-progress-bar"><div class="badge-progress-fill" style="width:30%"></div></div>
+          <small>3 / 10 cycles</small>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── ARCHITECTURE ──────────────────────────────────────────── -->
+    <section class="section architecture-section" id="architecture">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Scalable architecture</p>
+        <h2>From this prototype to production.</h2>
+      </div>
+
+      <div class="architecture-grid reveal">
+        <article>
+          <i class="bx bxl-nextjs" aria-hidden="true"></i>
+          <h3>Frontend</h3>
+          <p>Vanilla UI with dashboards, quizzes, search, and email accounts (JWT) for cross-device sync.</p>
+        </article>
+        <article>
+          <i class="bx bxl-python" aria-hidden="true"></i>
+          <h3>Backend</h3>
+          <p>FastAPI services for RSS ingestion, AI scoring, summaries, MCQ generation, and user progress.</p>
+        </article>
+        <article>
+          <i class="bx bx-data" aria-hidden="true"></i>
+          <h3>Database</h3>
+          <p>PostgreSQL tables for articles, summaries, reads, revision schedules, attempts, weak areas, and badges.</p>
+        </article>
+        <article>
+          <i class="bx bx-time-five" aria-hidden="true"></i>
+          <h3>Schedulers</h3>
+          <p>Hourly feed jobs, next-day revision creation, Day 7/21/45 spaced repetition, and reminder delivery.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── WEEKLY TEST ──────────────────────────────────────────── -->
+    <section class="section" id="weekly-test">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Weekly test</p>
+        <h2>25 questions. Every week. From this week's news.</h2>
+        <p>Auto-generated from filtered current affairs. Timed, exam-style, instant results and leaderboard.</p>
+      </div>
+      <div class="weekly-shell reveal">
+        <div class="weekly-card" id="weekly-card">
+          <div class="test-intro" id="weekly-intro">
+            <div class="test-meta-row">
+              <span class="tag tag-green" id="weekly-week-label">Loading...</span>
+              <span class="tag tag-navy">25 Questions</span>
+              <span class="tag tag-amber">Mixed Categories</span>
+            </div>
+            <h3>This Week's Current Affairs Test</h3>
+            <p>Questions sourced from this week's top filtered articles across all categories.</p>
+            <button class="primary-button" id="start-weekly-btn"><i class="bx bx-play"></i> Start weekly test</button>
+          </div>
+          <div class="test-quiz-wrap" id="weekly-quiz-wrap" hidden>
+            <div class="quiz-meta">
+              <span id="weekly-cat">Category</span>
+              <span id="weekly-prog">1 / 25</span>
+            </div>
+            <div class="quiz-progress-bar"><div id="weekly-bar" style="width:4%"></div></div>
+            <h3 id="weekly-q-text" class="quiz-q-text"></h3>
+            <div class="options" id="weekly-opts" role="group"></div>
+            <div class="quiz-result" id="weekly-result" aria-live="polite"></div>
+            <button class="secondary-button" id="weekly-next" hidden>Next →</button>
+          </div>
+          <div class="test-result-wrap" id="weekly-result-wrap" hidden>
+            <div class="result-score-big" id="weekly-score-big">0%</div>
+            <p id="weekly-feedback-text" style="text-align:center;color:var(--muted)"></p>
+            <div class="result-stats-row" id="weekly-stats-row"></div>
+            <button class="primary-button" id="weekly-retry-btn" style="margin:0 auto;display:flex">Retake test</button>
+          </div>
+        </div>
+        <aside class="leaderboard-panel" id="weekly-lb-panel">
+          <p class="label">This week's top scorers</p>
+          <div id="weekly-lb-list"><p class="loading">Loading...</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ── MONTHLY MOCK TEST ─────────────────────────────────────── -->
+    <section class="section" id="mock-test">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Monthly mock test</p>
+        <h2>100 questions. 2 hours. Real exam pressure.</h2>
+        <p>Full UPSC/SSC-style mock with negative marking, live timer, all-India rank, detailed report.</p>
+      </div>
+      <div class="mock-shell reveal">
+        <div class="mock-card" id="mock-card">
+          <div id="mock-intro">
+            <div class="test-meta-row">
+              <span class="tag tag-green" id="mock-month-label">Loading...</span>
+              <span class="tag tag-navy">100 Questions</span>
+              <span class="tag tag-amber">120 Minutes</span>
+              <span class="tag tag-red">−⅓ Negative marking</span>
+            </div>
+            <h3>Monthly Current Affairs Mock Test</h3>
+            <p>Select your exam type then start. Questions from this month's filtered current affairs.</p>
+            <div class="exam-selector">
+              <select id="mock-exam-select" class="exam-select">
+                <option value="UPSC">UPSC</option>
+                <option value="SSC">SSC CGL</option>
+                <option value="Banking">Banking</option>
+                <option value="Railway">Railway</option>
+              </select>
+            </div>
+            <button class="primary-button" id="start-mock-btn"><i class="bx bx-timer"></i> Start mock test</button>
+          </div>
+          <div id="mock-quiz-wrap" hidden>
+            <div class="mock-topbar">
+              <div class="mock-timer" id="mock-timer">2:00:00</div>
+              <div class="quiz-meta">
+                <span id="mock-cat">Category</span>
+                <span id="mock-prog">1 / 100</span>
+              </div>
+            </div>
+            <div class="quiz-progress-bar"><div id="mock-bar" style="width:1%"></div></div>
+            <h3 id="mock-q-text" class="quiz-q-text"></h3>
+            <div class="options" id="mock-opts" role="group"></div>
+            <div class="mock-nav-row">
+              <button class="secondary-button" id="mock-skip-btn">Skip →</button>
+              <button class="secondary-button" id="mock-submit-btn">Submit test</button>
+            </div>
+          </div>
+          <div id="mock-result-wrap" hidden>
+            <div class="result-score-big" id="mock-score-big">0%</div>
+            <p id="mock-feedback-text" style="text-align:center;color:var(--muted)"></p>
+            <div class="mock-stats-grid" id="mock-stats-grid"></div>
+            <p class="rank-badge" id="mock-rank-badge"></p>
+          </div>
+        </div>
+        <aside class="leaderboard-panel" id="mock-lb-panel">
+          <p class="label">This month's top performers</p>
+          <div id="mock-lb-list"><p class="loading">Loading...</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ── LEADERBOARD ───────────────────────────────────────────── -->
+    <section class="section" id="leaderboard">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Leaderboard</p>
+        <h2>Where do you stand among all aspirants?</h2>
+      </div>
+      <div class="lb-shell reveal">
+        <div class="lb-filters">
+          <button class="chip active" data-period="weekly">This week</button>
+          <button class="chip" data-period="monthly">This month</button>
+          <button class="chip" data-period="alltime">All time</button>
+        </div>
+        <div class="lb-table-wrap">
+          <table class="lb-table" id="lb-table">
+            <thead><tr><th>Rank</th><th>Student</th><th>Exam</th><th>Score</th><th>Streak</th><th>XP</th></tr></thead>
+            <tbody id="lb-body"><tr><td colspan="6" class="loading">Loading leaderboard...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="my-rank-card" id="my-rank-card" hidden>
+          <p class="label">Your rank</p>
+          <div id="my-rank-content"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── MODALS ────────────────────────────────────────────────── -->
+  <div class="modal" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" aria-hidden="true">
+    <div class="modal-dialog auth-dialog">
+      <button type="button" class="modal-close" id="auth-modal-close" aria-label="Close">&times;</button>
+      <p id="auth-modal-title" class="auth-eyebrow">Your account</p>
+      <p class="auth-sub">Sign up or log in to sync reads, revision queues, streaks, and scores.</p>
+      <div id="auth-signed-in" class="auth-signed-in" hidden>
+        <p class="auth-signed-email" id="auth-signed-email"></p>
+        <p class="auth-sub">Your progress syncs on every device.</p>
+        <button type="button" class="secondary-button auth-submit" id="auth-signout-btn"><i class="bx bx-log-out"></i> Sign out</button>
+      </div>
+      <div id="auth-forms-wrap">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" data-auth-tab="login" role="tab">Log in</button>
+          <button type="button" class="auth-tab" data-auth-tab="signup" role="tab">Sign up</button>
+        </div>
+        <form id="auth-form" class="auth-form" novalidate>
+          <label class="auth-field" id="auth-name-wrap" hidden>
+            <span>Name</span>
+            <input type="text" id="auth-name" name="name" autocomplete="name" placeholder="Your name">
+          </label>
+          <label class="auth-field">
+            <span>Email</span>
+            <input type="email" id="auth-email" name="email" required autocomplete="email" placeholder="you@example.com">
+          </label>
+          <label class="auth-field">
+            <span>Password</span>
+            <input type="password" id="auth-password" name="password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters">
+          </label>
+          <p class="auth-error" id="auth-error" role="alert" hidden></p>
+          <button type="submit" class="primary-button auth-submit" id="auth-submit">
+            <i class="bx bx-log-in"></i><span id="auth-submit-label">Log in</span>
+          </button>
+        </form>
+        <p class="auth-guest-note" id="auth-guest-note">Guest mode works locally. Create an account to sync across devices.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="article-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true">
+    <div class="modal-dialog">
+      <button type="button" class="modal-close" id="modal-close" aria-label="Close article">&times;</button>
+      <div id="modal-body"></div>
+      <div class="doubt-section" id="doubt-section">
+        <p class="label">AI Doubt Solver</p>
+        <div class="doubt-input-row">
+          <input type="text" id="doubt-input" placeholder="Ask anything about this article... e.g. What is repo rate?">
+          <button class="primary-button" id="doubt-ask-btn"><i class="bx bx-send"></i></button>
+        </div>
+        <div class="doubt-answer" id="doubt-answer" hidden></div>
+      </div>
+      <div class="pyq-section" id="pyq-section">
+        <p class="label">Related Past Year Questions</p>
+        <div id="pyq-list"><p class="loading">Loading PYQs...</p></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>ExamMemory AI — retention, exam relevance, speed, simplicity.</p>
+    <a href="#dashboard" aria-label="Back to top"><i class="bx bx-up-arrow-alt" aria-hidden="true"></i></a>
+  </footer>
+
+<script src="/static/scripts.js"></script>
+</body>
+</html>
