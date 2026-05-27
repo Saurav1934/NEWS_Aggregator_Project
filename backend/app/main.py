@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .database import init_db, get_db, User, Article, ReadLog, RevisionSchedule, new_id
-from .ingest import ingest_feeds
+from .ingest import get_ingest_status, ingest_feeds
 from .sources import sorted_sources
 from .auth import hash_password, verify_password, create_access_token, require_user
 from .weekly_test import get_current_week_test, submit_weekly_attempt, get_weekly_leaderboard
@@ -25,6 +25,16 @@ from .leaderboard import get_leaderboard, get_user_rank, award_xp, XP_READ_ARTIC
 from .ai_doubt import answer_doubt
 
 REVISION_NEXT_DAY = os.getenv("REVISION_NEXT_DAY", "false").lower() == "true"
+INGEST_INTERVAL_SECONDS = int(os.getenv("INGEST_INTERVAL_SECONDS", "3600"))
+
+
+async def _scheduled_ingest_loop():
+    while True:
+        await asyncio.sleep(INGEST_INTERVAL_SECONDS)
+        try:
+            await ingest_feeds()
+        except Exception as e:
+            print(f"[INGEST] Scheduled run failed: {e}")
 
 
 @asynccontextmanager
@@ -32,6 +42,7 @@ async def lifespan(app: FastAPI):
     init_db()
     print("[BOOT] DB initialised")
     asyncio.create_task(ingest_feeds())
+    asyncio.create_task(_scheduled_ingest_loop())
     print("[BOOT] RSS ingest started in background")
     from .database import SessionLocal
     _db = SessionLocal()
@@ -315,7 +326,16 @@ def revision_submit(body: RevisionSubmit, db: Session=Depends(get_db)):
 
 @app.post("/api/ingest/run")
 async def trigger_ingest():
-    return await ingest_feeds()
+    status = get_ingest_status()
+    if status.get("status") == "running":
+        return {**status, "message": "Ingest already running"}
+    asyncio.create_task(ingest_feeds())
+    return {"status": "started", "message": "RSS ingest started in background"}
+
+
+@app.get("/api/ingest/status")
+def ingest_status():
+    return get_ingest_status()
 
 
 # ═══════════════════════════════════════════════════════════
