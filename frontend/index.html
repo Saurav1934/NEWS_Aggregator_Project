@@ -149,9 +149,57 @@
             <h4>Category accuracy</h4>
             <div class="acc-bars" id="acc-bars"></div>
           </div>
+
+          <div class="filter-panel" id="filter-panel">
+            <h4>Article filters</h4>
+            <label>
+              <span>Category</span>
+              <select id="filter-category">
+                <option value="all">All categories</option>
+              </select>
+            </label>
+            <label>
+              <span>Source</span>
+              <select id="filter-source">
+                <option value="all">All sources</option>
+              </select>
+            </label>
+            <label>
+              <span>Status</span>
+              <select id="filter-status">
+                <option value="included">Included only</option>
+                <option value="all">All articles</option>
+                <option value="rejected">Rejected only</option>
+              </select>
+            </label>
+            <label>
+              <span>Minimum importance <strong id="importance-value">0</strong></span>
+              <input id="filter-importance" type="range" min="0" max="10" value="0" step="0.5">
+            </label>
+            <label class="check-row">
+              <input id="filter-saved" type="checkbox">
+              <span>Saved only</span>
+            </label>
+            <div class="filter-actions">
+              <button type="button" class="secondary-button compact-button" id="clear-filters">Reset</button>
+              <button type="button" class="primary-button compact-button" id="export-filtered">Export notes</button>
+            </div>
+          </div>
         </div>
 
-        <div class="article-list reveal" id="article-list" aria-live="polite" aria-label="Current affairs articles"></div>
+        <div class="article-column reveal">
+          <div class="saved-toolbar" id="saved-toolbar">
+            <div>
+              <p class="label">Saved articles</p>
+              <strong id="saved-count">0 saved</strong>
+            </div>
+            <div class="saved-actions">
+              <button type="button" class="secondary-button compact-button" id="show-saved">Show saved</button>
+              <button type="button" class="secondary-button compact-button" id="export-saved">Export saved</button>
+            </div>
+          </div>
+          <div class="article-list" id="article-list" aria-live="polite" aria-label="Current affairs articles"></div>
+        </div>
       </div>
     </section>
 
@@ -313,6 +361,7 @@
             <i class="bx bx-x"></i>
           </button>
         </div>
+        <p class="search-hint" id="search-hint">Search uses the active category, source, status, importance, and saved filters.</p>
         <div class="search-results" id="search-results" aria-live="polite" aria-label="Search results"></div>
       </div>
     </section>
