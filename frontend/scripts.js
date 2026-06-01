@@ -114,6 +114,15 @@ let correctAnswers  = 0;
 let answeredCurrent = false;
 let isDemo          = false;
 let firstFocusableInModal = null;
+const SAVED_ARTICLES_KEY = "exammemory_saved_articles";
+let savedArticleIds = new Set(JSON.parse(localStorage.getItem(SAVED_ARTICLES_KEY) || "[]"));
+let articleFilters = {
+  category: "all",
+  source: "all",
+  status: "included",
+  minImportance: 0,
+  savedOnly: false,
+};
 
 /* ── DOM REFS ─────────────────────────────────────────────────── */
 const $ = id => document.getElementById(id);
@@ -153,6 +162,27 @@ const authError         = $("auth-error");
 const authNameWrap      = $("auth-name-wrap");
 const authSubmitLabel   = $("auth-submit-label");
 const authGuestNote     = $("auth-guest-note");
+const filterCategory    = $("filter-category");
+const filterSource      = $("filter-source");
+const filterStatus      = $("filter-status");
+const filterImportance  = $("filter-importance");
+const importanceValue   = $("importance-value");
+const filterSaved       = $("filter-saved");
+const clearFiltersBtn   = $("clear-filters");
+const showSavedBtn      = $("show-saved");
+const savedCount        = $("saved-count");
+const exportFilteredBtn = $("export-filtered");
+const exportSavedBtn    = $("export-saved");
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[ch]));
+}
 
 /* ── API HELPER ───────────────────────────────────────────────── */
 function parseApiError(err, status) {
@@ -408,6 +438,69 @@ function modeNote(article) {
   return block?.revision_notes || article.why_important || "";
 }
 
+function isSavedArticle(id) {
+  return savedArticleIds.has(String(id));
+}
+
+function persistSavedArticles() {
+  localStorage.setItem(SAVED_ARTICLES_KEY, JSON.stringify([...savedArticleIds]));
+}
+
+function toggleSavedArticle(id) {
+  const key = String(id);
+  if (savedArticleIds.has(key)) savedArticleIds.delete(key);
+  else savedArticleIds.add(key);
+  persistSavedArticles();
+  renderSavedSummary();
+  renderArticles();
+}
+
+function renderSavedSummary() {
+  if (!savedCount) return;
+  savedCount.textContent = `${savedArticleIds.size} saved`;
+  if (showSavedBtn) showSavedBtn.textContent = articleFilters.savedOnly ? "Show all" : "Show saved";
+}
+
+function getFilteredArticles() {
+  return articles.filter(article => {
+    const included = article.include !== false;
+    const score = Number(article.importance_score || 0);
+    if (articleFilters.status === "included" && !included) return false;
+    if (articleFilters.status === "rejected" && included) return false;
+    if (articleFilters.category !== "all" && article.category !== articleFilters.category) return false;
+    if (articleFilters.source !== "all" && article.source_name !== articleFilters.source) return false;
+    if (score < articleFilters.minImportance) return false;
+    if (articleFilters.savedOnly && !isSavedArticle(article.id)) return false;
+    return true;
+  });
+}
+
+function populateFilterOptions() {
+  if (!filterCategory || !filterSource) return;
+  const categories = [...new Set(articles.map(a => a.category).filter(Boolean))].sort();
+  const sources = [...new Set(articles.map(a => a.source_name).filter(Boolean))].sort();
+  const selectedCategory = articleFilters.category;
+  const selectedSource = articleFilters.source;
+  filterCategory.innerHTML = `<option value="all">All categories</option>` +
+    categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  filterSource.innerHTML = `<option value="all">All sources</option>` +
+    sources.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  filterCategory.value = categories.includes(selectedCategory) ? selectedCategory : "all";
+  filterSource.value = sources.includes(selectedSource) ? selectedSource : "all";
+  articleFilters.category = filterCategory.value;
+  articleFilters.source = filterSource.value;
+}
+
+function syncFilterControls() {
+  if (filterCategory) filterCategory.value = articleFilters.category;
+  if (filterSource) filterSource.value = articleFilters.source;
+  if (filterStatus) filterStatus.value = articleFilters.status;
+  if (filterImportance) filterImportance.value = articleFilters.minImportance;
+  if (importanceValue) importanceValue.textContent = articleFilters.minImportance;
+  if (filterSaved) filterSaved.checked = articleFilters.savedOnly;
+  renderSavedSummary();
+}
+
 function renderArticleSkeleton() {
   return `<div class="article-card" style="pointer-events:none">
     <div>
@@ -423,11 +516,17 @@ function renderArticles() {
     articleList.innerHTML = `<p class="loading">No articles available. Start the backend to fetch live feeds.</p>`;
     return;
   }
-  const sorted = [...articles].sort((a,b) =>
+  const sorted = getFilteredArticles().sort((a,b) =>
     Number(b.include) - Number(a.include) || b.importance_score - a.importance_score
   );
+  if (!sorted.length) {
+    articleList.innerHTML = `<p class="loading">No articles match the active filters.</p>`;
+    renderSearchResults(searchInput.value);
+    return;
+  }
   articleList.innerHTML = sorted.map(article => {
     const note = modeNote(article);
+    const saved = isSavedArticle(article.id);
     return `
     <article class="article-card ${article.include ? "" : "rejected"}" data-id="${article.id}">
       <div>
@@ -435,14 +534,17 @@ function renderArticles() {
           <span class="article-score">${article.include ? "Include" : "Rejected"} · ${article.importance_score}/10</span>
           <span class="article-source">${article.source_name} · ${article.category}${article.language === "hi" ? " · हिंदी" : ""}</span>
         </div>
-        <h3><button type="button" class="link-title" data-open="${article.id}">${article.title}</button></h3>
-        <p class="article-why">${article.why_important}</p>
-        <p style="font-size:13px;color:var(--muted);margin:6px 0"><strong style="color:var(--ink)">${selectedExam}:</strong> ${note}</p>
+        <h3><button type="button" class="link-title" data-open="${esc(article.id)}">${esc(article.title)}</button></h3>
+        <p class="article-why">${esc(article.why_important)}</p>
+        <p style="font-size:13px;color:var(--muted);margin:6px 0"><strong style="color:var(--ink)">${esc(selectedExam)}:</strong> ${esc(note)}</p>
         <div class="article-tags">
-          ${(article.tags||[]).map(t=>`<span class="tag">${t}</span>`).join("")}
+          ${(article.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}
         </div>
       </div>
-      <button class="read-button" ${article.include?"":"disabled"} data-read="${article.id}">Mark read</button>
+      <div class="article-actions">
+        <button class="save-button ${saved ? "saved" : ""}" data-save="${esc(article.id)}">${saved ? "Saved" : "Save"}</button>
+        <button class="read-button" ${article.include?"":"disabled"} data-read="${esc(article.id)}">Mark read</button>
+      </div>
     </article>`;
   }).join("");
 
@@ -454,11 +556,15 @@ async function loadArticles() {
   articleList.innerHTML = renderArticleSkeleton();
   if (isDemo) {
     articles = DEMO_MODE_ARTICLES;
+    populateFilterOptions();
+    syncFilterControls();
     renderArticles();
     return;
   }
   const params = new URLSearchParams({ exam: selectedExam, include_rejected:"true" });
   articles = await api(`/api/articles?${params}`);
+  populateFilterOptions();
+  syncFilterControls();
   renderArticles();
 }
 
@@ -729,7 +835,7 @@ function renderSearchResults(term="") {
   const q = term.trim().toLowerCase();
   searchClear.hidden = !q;
 
-  const pool = articles.filter(a=>a.include);
+  const pool = getFilteredArticles();
   const matches = q
     ? pool.filter(a => `${a.title} ${a.category} ${(a.tags||[]).join(" ")} ${a.source_name}`.toLowerCase().includes(q))
     : pool;
@@ -742,14 +848,88 @@ function renderSearchResults(term="") {
   }
 
   searchResults.innerHTML = matches.map(a =>
-    `<article class="search-result" data-open="${a.id}">
-      <strong>${a.title}</strong>
+    `<article class="search-result" data-open="${esc(a.id)}">
+      <strong>${esc(a.title)}</strong>
       <p>${a.category} · ${(a.tags||[]).join(", ")} · ${a.importance_score}/10 importance</p>
     </article>`
   ).join("");
 }
 
 /* ── DARK MODE ────────────────────────────────────────────────── */
+function currentNotesBlock(article) {
+  const isDeep = ["UPSC","State PSC"].includes(selectedExam);
+  return (isDeep ? article.deep : article.quick) || article.quick || article.deep || {};
+}
+
+function notesMarkdown(items, label) {
+  const lines = [
+    `# ExamMemory AI Notes - ${label}`,
+    "",
+    `Exam: ${selectedExam}`,
+    `Generated: ${new Date().toLocaleString()}`,
+    "",
+  ];
+  items.forEach((article, index) => {
+    const block = currentNotesBlock(article);
+    const mcq = article.mcqs?.[0];
+    lines.push(`## ${index + 1}. ${article.title || "Untitled"}`);
+    lines.push("");
+    lines.push(`Source: ${article.source_name || "Unknown"} | Category: ${article.category || "General"} | Importance: ${article.importance_score || 0}/10`);
+    if (article.why_important) lines.push(`Why important: ${article.why_important}`);
+    if (block.why_in_news) lines.push(`Why in news: ${block.why_in_news}`);
+    if (block.key_facts?.length) {
+      lines.push("");
+      lines.push("Key facts:");
+      block.key_facts.forEach(fact => lines.push(`- ${fact}`));
+    }
+    if (block.background) lines.push(`Background: ${block.background}`);
+    if (block.exam_relevance) lines.push(`Exam relevance: ${block.exam_relevance}`);
+    if (block.revision_notes) lines.push(`Revision note: ${block.revision_notes}`);
+    if (mcq) {
+      lines.push("");
+      lines.push(`MCQ: ${mcq.question}`);
+      lines.push(`Answer: ${mcq.answer}`);
+      if (mcq.explanation) lines.push(`Explanation: ${mcq.explanation}`);
+    }
+    if (article.source_url) lines.push(`Original source: ${article.source_url}`);
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportNotes(items, label) {
+  if (!items.length) {
+    alert("No articles available for export.");
+    return;
+  }
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadTextFile(`ExamMemory-${label}-${stamp}.md`, notesMarkdown(items, label));
+}
+
+function resetArticleFilters() {
+  articleFilters = {
+    category: "all",
+    source: "all",
+    status: "included",
+    minImportance: 0,
+    savedOnly: false,
+  };
+  syncFilterControls();
+  renderArticles();
+}
+
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   themeIcon.className = theme === "dark" ? "bx bx-sun" : "bx bx-moon";
@@ -787,8 +967,43 @@ $$("[data-exam]").forEach(btn => {
   });
 });
 
+filterCategory?.addEventListener("change", () => {
+  articleFilters.category = filterCategory.value;
+  renderArticles();
+});
+filterSource?.addEventListener("change", () => {
+  articleFilters.source = filterSource.value;
+  renderArticles();
+});
+filterStatus?.addEventListener("change", () => {
+  articleFilters.status = filterStatus.value;
+  renderArticles();
+});
+filterImportance?.addEventListener("input", () => {
+  articleFilters.minImportance = Number(filterImportance.value);
+  if (importanceValue) importanceValue.textContent = articleFilters.minImportance;
+  renderArticles();
+});
+filterSaved?.addEventListener("change", () => {
+  articleFilters.savedOnly = filterSaved.checked;
+  renderSavedSummary();
+  renderArticles();
+});
+clearFiltersBtn?.addEventListener("click", resetArticleFilters);
+showSavedBtn?.addEventListener("click", () => {
+  articleFilters.savedOnly = !articleFilters.savedOnly;
+  syncFilterControls();
+  renderArticles();
+});
+exportFilteredBtn?.addEventListener("click", () => exportNotes(getFilteredArticles(), "filtered"));
+exportSavedBtn?.addEventListener("click", () => {
+  exportNotes(articles.filter(a => isSavedArticle(a.id)), "saved");
+});
+
 // Article list clicks (open or mark-read)
 articleList.addEventListener("click", async e => {
+  const saveBtn = e.target.closest("[data-save]");
+  if (saveBtn) { toggleSavedArticle(saveBtn.dataset.save); return; }
   const openBtn = e.target.closest("[data-open]");
   if (openBtn) { await openArticle(openBtn.dataset.open); return; }
   const readBtn = e.target.closest("[data-read]");
@@ -804,6 +1019,14 @@ searchResults.addEventListener("click", async e => {
 // Modal close
 modalClose.addEventListener("click", closeModal);
 articleModal.addEventListener("click", e => { if (e.target===articleModal) closeModal(); });
+articleModal.addEventListener("click", e => {
+  const btn = e.target.closest("[data-modal-save]");
+  if (btn) {
+    toggleSavedArticle(btn.dataset.modalSave);
+    btn.classList.toggle("saved", isSavedArticle(btn.dataset.modalSave));
+    btn.textContent = isSavedArticle(btn.dataset.modalSave) ? "Saved" : "Save article";
+  }
+});
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (articleModal.classList.contains("open")) closeModal();
