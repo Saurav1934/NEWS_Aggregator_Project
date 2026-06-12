@@ -1,0 +1,21 @@
+# ExamMemory AI — Netlify static site config
+# Publish directory: frontend/
+# Demo mode works automatically if no backend is connected.
+
+[build]
+  publish = "frontend"
+
+# FastAPI serves CSS/JS at /static/* — map those paths on Netlify
+[[redirects]]
+  from = "/static/*"
+  to = "/:splat"
+  status = 200
+
+# After you deploy the backend (Render, Fly.io, etc.), replace the URL below
+# and uncomment this block so /api/* is proxied to your live server:
+#
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://YOUR-BACKEND.onrender.com/api/:splat"
+#   status = 200
+#   force = true

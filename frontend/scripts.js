@@ -19,11 +19,14 @@
 
 /* ── CONFIG ───────────────────────────────────────────────────── */
 const API_BASE = (() => {
-  // 1. Injected by Netlify build (window.EXAMMEMORY_API = "https://your-api.fly.dev")
+  // 1. Injected config (optional): window.EXAMMEMORY_API = "https://your-api.fly.dev"
   if (window.EXAMMEMORY_API) return window.EXAMMEMORY_API.replace(/\/$/, "");
   // 2. Same-origin when served by FastAPI on :8000
   if (window.location.port === "8000") return window.location.origin;
-  // 3. Local dev fallback
+  // 3. Deployed site (Netlify etc.) — use same-origin so /api proxy in netlify.toml works
+  const host = window.location.hostname;
+  if (host !== "localhost" && host !== "127.0.0.1") return window.location.origin;
+  // 4. Local dev fallback
   return "http://127.0.0.1:8000";
 })();
 
